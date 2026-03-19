@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bungee Drop Simulator — Science Olympiad 2026</title>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --border: #0f3460;
+    --text: #e0e0e0;
+    --text-muted: #8a8a9a;
+    --accent: #00b4d8;
+    --accent-dim: #0077b6;
+    --green: #2ecc71;
+    --yellow: #f39c12;
+    --red: #e74c3c;
+    --mono: 'Courier New', Courier, monospace;
+    --sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  h1, h2, h3 { font-weight: 600; }
+
+  /* ── Layout ── */
+  .app { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+  header { text-align: center; margin-bottom: 2rem; }
+  header h1 { font-size: 1.6rem; color: var(--accent); letter-spacing: 0.02em; }
+  header p { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem; }
+
+  /* ── Panels ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .panel h2 {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+  }
+
+  /* ── Form ── */
+  .form-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+  .field { display: flex; flex-direction: column; gap: 0.25rem; }
+  .field label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+  .field input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: var(--mono);
+    outline: none;
+    transition: border-color 0.2s;
+    width: 120px;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .field-wide input { width: 160px; }
+
+  .btn-row { display: flex; gap: 0.75rem; margin-top: 1.25rem; flex-wrap: wrap; }
+  button {
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.55rem 1.4rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: var(--accent-dim); color: #fff; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-secondary:hover { background: #1a4a80; }
+  .btn-small {
+    font-size: 0.78rem;
+    padding: 0.4rem 0.8rem;
+  }
+  .btn-danger { background: #5a1a1a; color: var(--red); }
+  .btn-danger:hover { background: #7a2a2a; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .error-msg { color: var(--red); font-size: 0.85rem; margin-top: 0.5rem; }
+
+  /* ── Calibration Table ── */
+  .calib-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    margin-bottom: 0.75rem;
+  }
+  .calib-table th, .calib-table td {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--border);
+    text-align: right;
+  }
+  .calib-table th {
+    background: var(--bg);
+    color: var(--accent);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .calib-table td.action { text-align: center; }
+  .calib-table .remove-btn {
+    background: none;
+    border: none;
+    color: var(--red);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0.1rem 0.4rem;
+  }
+  .calib-table .remove-btn:hover { color: #ff6b6b; }
+
+  .calib-note {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 0.5rem;
+  }
+
+  /* ── Filters ── */
+  .filters {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .filters label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .filters select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    outline: none;
+  }
+  .filters select:focus { border-color: var(--accent); }
+
+  /* ── Screen Table ── */
+  .table-wrap { overflow-x: auto; }
+  table.screen-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+  }
+  table.screen-table th, table.screen-table td {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border);
+    text-align: right;
+    white-space: nowrap;
+  }
+  table.screen-table th {
+    background: var(--bg);
+    color: var(--accent);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  table.screen-table td.status-ok { color: var(--green); }
+  table.screen-table td.status-warn { color: var(--yellow); }
+  table.screen-table td.status-err { color: var(--red); }
+
+  #results-panel, #screen-table-panel { display: none; }
+  #results-panel.visible, #screen-table-panel.visible { display: block; }
+
+  /* ── Print Sheet (hidden on screen) ── */
+  .print-only { display: none; }
+
+  /* ── Print Styles ── */
+  @media print {
+    .screen-only { display: none !important; }
+    .print-only { display: block !important; }
+    body {
+      background: #fff;
+      color: #000;
+      font-size: 9pt;
+      line-height: 1.3;
+    }
+    .print-page {
+      page-break-after: always;
+      padding: 0.3cm;
+    }
+    .print-page:last-child { page-break-after: avoid; }
+    .print-header {
+      text-align: center;
+      margin-bottom: 0.3cm;
+      border-bottom: 1.5pt solid #000;
+      padding-bottom: 0.15cm;
+    }
+    .print-header h2 { font-size: 12pt; margin-bottom: 2pt; }
+    .print-header .meta { font-size: 7.5pt; color: #444; font-family: var(--mono); }
+    table.print-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 8pt;
+    }
+    table.print-table th, table.print-table td {
+      border: 0.5pt solid #666;
+      padding: 2pt 3pt;
+      text-align: center;
+    }
+    table.print-table th {
+      background: #e8e8e8 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      font-weight: 700;
+      font-size: 7pt;
+    }
+    table.print-table td.impossible {
+      color: #999;
+      font-style: italic;
+    }
+    table.print-table td.warning {
+      text-decoration: underline;
+    }
+    .print-footer {
+      margin-top: 0.2cm;
+      font-size: 7pt;
+      color: #555;
+      border-top: 0.5pt solid #999;
+      padding-top: 0.1cm;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app screen-only">
+
+  <!-- ── Header ── -->
+  <header>
+    <h1>Bungee Drop Simulator</h1>
+    <p>Science Olympiad Division C &middot; 2026 Regionals</p>
+  </header>
+
+  <!-- ── Calibration Panel ── -->
+  <div class="panel">
+    <h2>Calibration Data</h2>
+    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:1rem;">
+      Hang different masses on your cord and measure the <strong>stretch</strong> (extension beyond natural length).
+      Add multiple points for a non-linear cord model. All measurements at the same reference cord length.
+    </p>
+
+    <div class="form-row" style="margin-bottom:1rem;">
+      <div class="field field-wide">
+        <label>Reference Cord Length (cm)</label>
+        <input type="number" id="calibLref" placeholder="e.g. 50" step="any" min="1">
+      </div>
+      <div class="field">
+        <label>Buffer Above Floor (cm)</label>
+        <input type="number" id="bufferCm" value="1.0" step="0.1" min="0">
+      </div>
+    </div>
+
+    <div id="calibTableWrap">
+      <table class="calib-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Mass (g)</th>
+            <th>Stretch (cm)</th>
+            <th>k_ref (N/m)</th>
+            <th>K (N)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="calibBody"></tbody>
+      </table>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label>Mass (g)</label>
+        <input type="number" id="addMass" placeholder="e.g. 200" step="any" min="1">
+      </div>
+      <div class="field">
+        <label>Stretch (cm)</label>
+        <input type="number" id="addStretch" placeholder="e.g. 15" step="any" min="0.1">
+      </div>
+      <button class="btn-secondary btn-small" onclick="addCalibPoint()" style="margin-bottom:2px;">+ Add Point</button>
+    </div>
+
+    <div class="calib-note" id="calibNote"></div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="generate()">Generate Lookup Table</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <!-- ── Results Summary ── -->
+  <div class="panel" id="results-panel">
+    <h2>Results</h2>
+    <div id="resultsSummary" style="font-size:0.85rem; margin-bottom:1rem;"></div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="window.print()">Print Lookup Sheets</button>
+      <button class="btn-secondary" onclick="exportCSV()">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- ── Screen Table ── -->
+  <div class="panel" id="screen-table-panel">
+    <h2>Interactive Table</h2>
+    <div class="filters">
+      <div>
+        <label>Drop Height: </label>
+        <select id="filterHeight" onchange="renderScreenTable()"></select>
+      </div>
+      <div>
+        <label>Light Mass: </label>
+        <select id="filterMass" onchange="renderScreenTable()"></select>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <div id="screenTableContainer"></div>
+    </div>
+  </div>
+
+</div><!-- end .app -->
+
+<!-- ── Print Sheets (hidden on screen, visible on print) ── -->
+<div class="print-only" id="printSheets"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  PHYSICS ENGINE — Multi-Point Non-Linear Model
+// ═══════════════════════════════════════════════
+
+const G = 9.81;
+const ATTACH_HEIGHT = 0.35; // meters
+
+// Regionals parameters
+const DROP_HEIGHTS = [];
+for (let h = 2.00; h <= 5.001; h += 0.25) DROP_HEIGHTS.push(Math.round(h * 100) / 100);
+
+const LIGHT_MASSES_G = [];
+for (let m = 100; m <= 300; m += 25) LIGHT_MASSES_G.push(m);
+
+const HEAVY_OFFSETS_G = [];
+for (let o = 200; o <= 300; o += 10) HEAVY_OFFSETS_G.push(o);
+
+/**
+ * Build a force-stretch curve from calibration points.
+ * Each point: { mass_g, stretch_cm } at a known reference cord length.
+ *
+ * Returns sorted array of { x_m: stretch in meters, F_N: force in newtons }
+ * with an implicit (0, 0) origin point.
+ *
+ * Since k_eff = K / L0, and K = k_ref * L_ref, the force-stretch relationship
+ * at the reference length is F = k_ref * x. For a different cord length L0,
+ * the stretch for the same force scales by L0/L_ref (longer cord stretches more).
+ *
+ * We store the RAW force-stretch curve at the reference length.
+ * When solving for a specific L0, we scale the stretch axis by (L0 / L_ref).
+ */
+function buildForceCurve(calibPoints) {
+  const points = [{ x_m: 0, F_N: 0 }];
+  for (const p of calibPoints) {
+    points.push({
+      x_m: p.stretch_cm / 100,
+      F_N: (p.mass_g / 1000) * G
+    });
+  }
+  points.sort((a, b) => a.x_m - b.x_m);
+  return points;
+}
+
+/**
+ * Compute elastic PE by integrating the force-stretch curve (piecewise linear)
+ * from 0 to stretchX meters.
+ *
+ * The curve is defined at the reference cord length L_ref.
+ * For cord length L0, stretch scales by factor (L0 / L_ref):
+ *   actual_stretch = ref_stretch * (L0 / L_ref)
+ *   so ref_stretch = actual_stretch * (L_ref / L0)
+ *
+ * The force at a given actual stretch for cord L0 equals the force at the
+ * corresponding reference stretch: F(actual_x) = F_ref(actual_x * L_ref / L0)
+ *
+ * Energy = integral from 0 to actual_stretch of F(x) dx
+ *        = integral from 0 to actual_stretch of F_ref(x * L_ref / L0) dx
+ *
+ * Substituting u = x * L_ref / L0, dx = (L0/L_ref) du:
+ *        = (L0/L_ref) * integral from 0 to ref_stretch of F_ref(u) du
+ */
+function elasticPE(forceCurve, stretchActual_m, L0_m, L_ref_m) {
+  const scale = L_ref_m / L0_m;
+  const stretchRef = stretchActual_m * scale; // map to reference curve
+
+  // Integrate F_ref from 0 to stretchRef using trapezoidal rule
+  let energy = 0;
+  for (let i = 1; i < forceCurve.length; i++) {
+    const x0 = forceCurve[i - 1].x_m;
+    const x1 = forceCurve[i].x_m;
+    const f0 = forceCurve[i - 1].F_N;
+    const f1 = forceCurve[i].F_N;
+
+    if (stretchRef <= x0) break;
+
+    const xEnd = Math.min(x1, stretchRef);
+    const dx = xEnd - x0;
+    // Linearly interpolate force at xEnd
+    const t = (x1 > x0) ? (xEnd - x0) / (x1 - x0) : 0;
+    const fEnd = f0 + t * (f1 - f0);
+    energy += 0.5 * (f0 + fEnd) * dx;
+  }
+
+  // If stretchRef exceeds the last calibration point, extrapolate linearly
+  const lastPt = forceCurve[forceCurve.length - 1];
+  if (stretchRef > lastPt.x_m && forceCurve.length >= 2) {
+    const prevPt = forceCurve[forceCurve.length - 2];
+    const slope = (lastPt.F_N - prevPt.F_N) / (lastPt.x_m - prevPt.x_m);
+    const extraX = stretchRef - lastPt.x_m;
+    const fEnd = lastPt.F_N + slope * extraX;
+    energy += 0.5 * (lastPt.F_N + fEnd) * extraX;
+  }
+
+  // Scale energy by L0/L_ref (from the substitution)
+  return energy * (L0_m / L_ref_m);
+}
+
+/**
+ * Solve for cord length L0 using bisection.
+ *
+ * Energy conservation: m*g*d = elasticPE(d - L0)
+ * where d = dropHeight - attachHeight - buffer/100
+ *
+ * We search for L0 in (0, d) where the energy balance holds.
+ * f(L0) = elasticPE(d - L0, L0) - m*g*d
+ * f(L0) = 0 is our target.
+ *
+ * As L0 → 0: huge stretch, huge spring energy → f > 0
+ * As L0 → d: zero stretch, zero spring energy → f < 0
+ * So f is monotonically decreasing and we bisect for the root.
+ */
+function solveForCordLength(mass_kg, forceCurve, L_ref_m, dropHeight_m, attachHeight_m, bufferCm) {
+  const d = dropHeight_m - attachHeight_m - bufferCm / 100;
+
+  if (d <= 0) {
+    return { status: 'impossible', reason: 'target <= 0', L0_m: null, L0_cm: null };
+  }
+
+  const mg_d = mass_kg * G * d; // gravitational PE
+
+  // f(L0) = elasticPE(d - L0, L0) - mg*d
+  function f(L0) {
+    const stretch = d - L0;
+    if (stretch <= 0) return -mg_d; // no stretch, no spring energy
+    return elasticPE(forceCurve, stretch, L0, L_ref_m) - mg_d;
+  }
+
+  // Check if solution exists
+  const fLow = f(0.001); // L0 near 0: lots of stretch
+  const fHigh = f(d - 0.001); // L0 near d: no stretch
+
+  if (fLow < 0) {
+    // Even with maximum stretch, not enough spring energy
+    return { status: 'impossible', reason: 'cord too weak', L0_m: null, L0_cm: null };
+  }
+  if (fHigh > 0) {
+    // Even with minimal stretch, too much spring energy (should not happen)
+    return { status: 'impossible', reason: 'no solution', L0_m: null, L0_cm: null };
+  }
+
+  // Bisection
+  let lo = 0.001, hi = d - 0.001;
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+    if (f(mid) > 0) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+    if (hi - lo < 1e-7) break; // sub-micrometer precision
+  }
+
+  const L0 = (lo + hi) / 2;
+  const L0_cm = L0 * 100;
+  const status = L0_cm < 10 ? 'warning' : 'ok';
+
+  return { status, L0_m: L0, L0_cm };
+}
+
+/**
+ * Verify: compute the energy ratio at a given L0.
+ */
+function verify(mass_kg, forceCurve, L_ref_m, dropHeight_m, attachHeight_m, L0_m) {
+  const d = dropHeight_m - attachHeight_m;
+  const stretch = d - L0_m;
+  const peGravity = mass_kg * G * d;
+  const peSpring = elasticPE(forceCurve, stretch, L0_m, L_ref_m);
+  return { peGravity, peSpring, ratio: peSpring / peGravity };
+}
+
+/**
+ * Generate all scenarios.
+ */
+function generateAllScenarios(forceCurve, L_ref_m, bufferCm) {
+  const results = [];
+
+  for (let hi = 0; hi < DROP_HEIGHTS.length; hi++) {
+    const heightRow = [];
+    const dropH = DROP_HEIGHTS[hi];
+
+    for (let li = 0; li < LIGHT_MASSES_G.length; li++) {
+      const lightMassG = LIGHT_MASSES_G[li];
+      const lightResult = solveForCordLength(lightMassG / 1000, forceCurve, L_ref_m, dropH, ATTACH_HEIGHT, bufferCm);
+
+      const heavyResults = [];
+      for (let oi = 0; oi < HEAVY_OFFSETS_G.length; oi++) {
+        const heavyMassG = lightMassG + HEAVY_OFFSETS_G[oi];
+        const heavyResult = solveForCordLength(heavyMassG / 1000, forceCurve, L_ref_m, dropH, ATTACH_HEIGHT, bufferCm);
+        heavyResults.push({ offsetG: HEAVY_OFFSETS_G[oi], totalMassG: heavyMassG, ...heavyResult });
+      }
+
+      heightRow.push({ lightMassG, lightResult, heavyResults });
+    }
+    results.push(heightRow);
+  }
+
+  return results;
+}
+
+// ═══════════════════════════════════════════════
+//  UI LOGIC
+// ═══════════════════════════════════════════════
+
+let calibPoints = []; // { mass_g, stretch_cm }
+let allResults = null;
+let currentForceCurve = null;
+let currentLref = null;
+let currentBuffer = null;
+
+function showError(msg) {
+  document.getElementById('errorMsg').textContent = msg;
+}
+function clearError() {
+  document.getElementById('errorMsg').textContent = '';
+}
+
+function addCalibPoint() {
+  const massG = parseFloat(document.getElementById('addMass').value);
+  const stretchCm = parseFloat(document.getElementById('addStretch').value);
+
+  if (!massG || massG <= 0) { showError('Mass must be positive.'); return; }
+  if (!stretchCm || stretchCm <= 0) { showError('Stretch must be positive.'); return; }
+  clearError();
+
+  calibPoints.push({ mass_g: massG, stretch_cm: stretchCm });
+  calibPoints.sort((a, b) => a.mass_g - b.mass_g);
+
+  document.getElementById('addMass').value = '';
+  document.getElementById('addStretch').value = '';
+  document.getElementById('addMass').focus();
+
+  renderCalibTable();
+}
+
+function removeCalibPoint(idx) {
+  calibPoints.splice(idx, 1);
+  renderCalibTable();
+}
+
+function renderCalibTable() {
+  const lRefCm = parseFloat(document.getElementById('calibLref').value) || 0;
+  const lRef_m = lRefCm / 100;
+
+  const tbody = document.getElementById('calibBody');
+  if (calibPoints.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);font-style:italic;">No calibration points yet. Add measurements above.</td></tr>';
+    document.getElementById('calibNote').textContent = '';
+    return;
+  }
+
+  let html = '';
+  calibPoints.forEach((p, i) => {
+    const k_ref = ((p.mass_g / 1000) * G) / (p.stretch_cm / 100);
+    const K = lRef_m > 0 ? k_ref * lRef_m : 0;
+    html += '<tr>';
+    html += `<td>${i + 1}</td>`;
+    html += `<td>${p.mass_g}</td>`;
+    html += `<td>${p.stretch_cm}</td>`;
+    html += `<td>${k_ref.toFixed(2)}</td>`;
+    html += `<td>${K > 0 ? K.toFixed(4) : '—'}</td>`;
+    html += `<td class="action"><button class="remove-btn" onclick="removeCalibPoint(${i})">✕</button></td>`;
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+
+  // Show note about model type
+  if (calibPoints.length === 1) {
+    document.getElementById('calibNote').textContent =
+      '1 point → linear (Hooke\'s law) model. Add more points for a non-linear model.';
+  } else {
+    const k_vals = calibPoints.map(p => ((p.mass_g / 1000) * G) / (p.stretch_cm / 100));
+    const k_min = Math.min(...k_vals).toFixed(1);
+    const k_max = Math.max(...k_vals).toFixed(1);
+    document.getElementById('calibNote').textContent =
+      `${calibPoints.length} points → piecewise-linear model. k_ref ranges from ${k_min} to ${k_max} N/m.`;
+  }
+}
+
+// Re-render K column when reference length changes
+document.getElementById('calibLref').addEventListener('input', renderCalibTable);
+
+// Allow Enter key to add point
+document.getElementById('addStretch').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addCalibPoint();
+});
+
+function generate() {
+  clearError();
+
+  const lRefCm = parseFloat(document.getElementById('calibLref').value);
+  const bufCm = parseFloat(document.getElementById('bufferCm').value);
+
+  if (!lRefCm || lRefCm <= 0) { showError('Reference cord length must be positive.'); return; }
+  if (isNaN(bufCm) || bufCm < 0) { showError('Buffer must be >= 0.'); return; }
+  if (calibPoints.length === 0) { showError('Add at least one calibration point.'); return; }
+
+  const L_ref_m = lRefCm / 100;
+  const forceCurve = buildForceCurve(calibPoints);
+  currentForceCurve = forceCurve;
+  currentLref = L_ref_m;
+  currentBuffer = bufCm;
+
+  // Run solver
+  allResults = generateAllScenarios(forceCurve, L_ref_m, bufCm);
+
+  // Verify a sample solution
+  let verifyMsg = '';
+  const sample = allResults[4]?.[3]?.lightResult; // drop=3.00m, light=175g
+  if (sample && sample.status === 'ok') {
+    const v = verify(LIGHT_MASSES_G[3] / 1000, forceCurve, L_ref_m, DROP_HEIGHTS[4], ATTACH_HEIGHT, sample.L0_m);
+    verifyMsg = ` | Verification (3.00m, 175g): energy ratio = ${v.ratio.toFixed(6)} (should be ~1.0)`;
+  }
+
+  // Count stats
+  let total = 0, ok = 0, warn = 0, imp = 0;
+  allResults.forEach(hRow => hRow.forEach(entry => {
+    [entry.lightResult, ...entry.heavyResults].forEach(r => {
+      total++;
+      if (r.status === 'ok') ok++;
+      else if (r.status === 'warning') warn++;
+      else imp++;
+    });
+  }));
+
+  // Show results panel
+  const rp = document.getElementById('results-panel');
+  rp.classList.add('visible');
+  document.getElementById('resultsSummary').innerHTML =
+    `<strong>${total}</strong> scenarios computed. ` +
+    `<span style="color:var(--green)">${ok} valid</span> &middot; ` +
+    `<span style="color:var(--yellow)">${warn} short</span> &middot; ` +
+    `<span style="color:var(--red)">${imp} impossible</span>` +
+    `<br><span style="font-size:0.78rem;color:var(--text-muted)">` +
+    `Model: ${calibPoints.length} calibration point${calibPoints.length > 1 ? 's' : ''}, ` +
+    `ref cord: ${lRefCm} cm${verifyMsg}</span>`;
+
+  populateFilters();
+  document.getElementById('screen-table-panel').classList.add('visible');
+  renderScreenTable();
+  generatePrintSheets();
+}
+
+function populateFilters() {
+  const hSel = document.getElementById('filterHeight');
+  hSel.innerHTML = DROP_HEIGHTS.map((h, i) =>
+    `<option value="${i}">${h.toFixed(2)} m</option>`
+  ).join('');
+
+  const mSel = document.getElementById('filterMass');
+  mSel.innerHTML = '<option value="all">All</option>' +
+    LIGHT_MASSES_G.map((m, i) =>
+      `<option value="${i}">${m} g</option>`
+    ).join('');
+}
+
+function renderScreenTable() {
+  if (!allResults) return;
+
+  const hi = parseInt(document.getElementById('filterHeight').value);
+  const mFilter = document.getElementById('filterMass').value;
+  const heightData = allResults[hi];
+
+  let html = '<table class="screen-table"><thead><tr>';
+  html += '<th>Light Mass (g)</th><th>Light Cord (cm)</th>';
+  HEAVY_OFFSETS_G.forEach(o => { html += `<th>+${o}g (cm)</th>`; });
+  html += '</tr></thead><tbody>';
+
+  heightData.forEach((entry, li) => {
+    if (mFilter !== 'all' && li !== parseInt(mFilter)) return;
+
+    html += '<tr>';
+    html += `<td>${entry.lightMassG}</td>`;
+    html += formatCell(entry.lightResult, true);
+
+    entry.heavyResults.forEach(hr => {
+      html += formatCell(hr, true);
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('screenTableContainer').innerHTML = html;
+}
+
+function formatCell(result, fullPrecision) {
+  if (result.status === 'impossible') {
+    return '<td class="status-err">---</td>';
+  }
+  const val = fullPrecision ? result.L0_cm.toFixed(2) : roundHalf(result.L0_cm).toFixed(1);
+  const cls = result.status === 'warning' ? 'status-warn' : 'status-ok';
+  return `<td class="${cls}">${val}</td>`;
+}
+
+function roundHalf(cm) {
+  return Math.round(cm * 2) / 2;
+}
+
+// ═══════════════════════════════════════════════
+//  PRINT SHEET GENERATION
+// ═══════════════════════════════════════════════
+
+function generatePrintSheets() {
+  if (!allResults) return;
+
+  // Build calibration summary string
+  const calibSummary = calibPoints.map(p => `${p.mass_g}g→${p.stretch_cm}cm`).join(', ');
+  const lRefCm = currentLref * 100;
+
+  let html = '';
+
+  for (let hi = 0; hi < DROP_HEIGHTS.length; hi++) {
+    const dropH = DROP_HEIGHTS[hi];
+    const heightData = allResults[hi];
+
+    html += '<div class="print-page">';
+
+    // Header
+    html += '<div class="print-header">';
+    html += `<h2>Bungee Drop &mdash; ${dropH.toFixed(2)} m</h2>`;
+    html += '<div class="meta">';
+    html += `Calib (${calibPoints.length}pt): ${calibSummary} @ ${lRefCm}cm cord &nbsp;|&nbsp; `;
+    html += `Buffer: ${currentBuffer} cm &nbsp;|&nbsp; `;
+    html += `Attach: ${(ATTACH_HEIGHT * 100).toFixed(0)} cm`;
+    html += '</div></div>';
+
+    // Table
+    html += '<table class="print-table"><thead><tr>';
+    html += '<th>Light<br>Mass (g)</th>';
+    html += '<th>Light<br>Cord (cm)</th>';
+    HEAVY_OFFSETS_G.forEach(o => {
+      html += `<th>+${o}g<br>(cm)</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    heightData.forEach(entry => {
+      html += '<tr>';
+      html += `<td><strong>${entry.lightMassG}</strong></td>`;
+
+      if (entry.lightResult.status === 'impossible') {
+        html += '<td class="impossible">---</td>';
+      } else {
+        const v = roundHalf(entry.lightResult.L0_cm).toFixed(1);
+        const cls = entry.lightResult.status === 'warning' ? 'warning' : '';
+        html += `<td class="${cls}">${v}</td>`;
+      }
+
+      entry.heavyResults.forEach(hr => {
+        if (hr.status === 'impossible') {
+          html += '<td class="impossible">---</td>';
+        } else {
+          const v = roundHalf(hr.L0_cm).toFixed(1);
+          const cls = hr.status === 'warning' ? 'warning' : '';
+          html += `<td class="${cls}">${v}</td>`;
+        }
+      });
+
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+
+    // Footer
+    html += '<div class="print-footer">';
+    html += 'Cord lengths in cm, rounded to 0.5 cm. Underlined = unreliably short (&lt;10 cm). "---" = impossible.<br>';
+    html += 'Attachment assumed 35 cm. For every 1 cm shorter, lengthen cord by ~0.7 cm (adjust from practice).<br>';
+    html += 'Heavy mass = Light mass + offset. Values are cut lengths from spool.';
+    html += '</div>';
+
+    html += '</div>';
+  }
+
+  document.getElementById('printSheets').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════
+//  CSV EXPORT
+// ═══════════════════════════════════════════════
+
+function exportCSV() {
+  if (!allResults) return;
+
+  let csv = 'Drop Height (m),Light Mass (g),Light Cord (cm),';
+  csv += HEAVY_OFFSETS_G.map(o => `Heavy +${o}g Cord (cm)`).join(',');
+  csv += '\n';
+
+  for (let hi = 0; hi < DROP_HEIGHTS.length; hi++) {
+    allResults[hi].forEach(entry => {
+      csv += `${DROP_HEIGHTS[hi].toFixed(2)},${entry.lightMassG},`;
+      csv += (entry.lightResult.status !== 'impossible' ? entry.lightResult.L0_cm.toFixed(4) : 'N/A') + ',';
+      csv += entry.heavyResults.map(hr =>
+        hr.status !== 'impossible' ? hr.L0_cm.toFixed(4) : 'N/A'
+      ).join(',');
+      csv += '\n';
+    });
+  }
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'bungee_drop_lookup.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Initialize empty table
+renderCalibTable();
+</script>
+</body>
+</html>

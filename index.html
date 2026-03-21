@@ -337,8 +337,16 @@
     <h2>Results</h2>
     <div id="resultsSummary" style="font-size:0.85rem; margin-bottom:1rem;"></div>
     <div class="btn-row">
+      <div class="field">
+        <label>Print cord unit</label>
+        <select id="printUnit" onchange="generatePrintSheets()" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0.4rem 0.6rem;color:var(--text);font-family:var(--mono);font-size:0.85rem;">
+          <option value="cm">Centimeters (cm)</option>
+          <option value="in">Inches (in)</option>
+        </select>
+      </div>
       <button class="btn-primary" onclick="window.print()">Print Lookup Sheets</button>
-      <button class="btn-secondary" onclick="exportCSV()">Export CSV</button>
+      <button class="btn-secondary" onclick="exportCSV('metric')">Export CSV (cm)</button>
+      <button class="btn-secondary" onclick="exportCSV('inches')">Export CSV (inches)</button>
     </div>
   </div>
 
@@ -770,9 +778,21 @@ function roundHalf(cm) {
 function generatePrintSheets() {
   if (!allResults) return;
 
+  const unitSel = document.getElementById('printUnit');
+  const useInches = unitSel && unitSel.value === 'in';
+  const unitLabel = useInches ? 'in' : 'cm';
+
   // Build calibration summary string
   const calibSummary = calibPoints.map(p => `${p.mass_g}g→${p.stretch_cm}cm`).join(', ');
   const lRefCm = currentLref * 100;
+
+  function formatPrintVal(L0_cm) {
+    if (useInches) {
+      const inches = L0_cm / 2.54;
+      return (Math.round(inches * 4) / 4).toFixed(2); // round to nearest 1/4 inch
+    }
+    return roundHalf(L0_cm).toFixed(1); // round to nearest 0.5 cm
+  }
 
   let html = '';
 
@@ -788,15 +808,16 @@ function generatePrintSheets() {
     html += '<div class="meta">';
     html += `Calib (${calibPoints.length}pt): ${calibSummary} @ ${lRefCm}cm cord &nbsp;|&nbsp; `;
     html += `Buffer: ${currentBuffer} cm &nbsp;|&nbsp; `;
-    html += `Attach: ${(ATTACH_HEIGHT * 100).toFixed(0)} cm`;
+    html += `Attach: ${(ATTACH_HEIGHT * 100).toFixed(0)} cm &nbsp;|&nbsp; `;
+    html += `Cord unit: ${unitLabel}`;
     html += '</div></div>';
 
     // Table
     html += '<table class="print-table"><thead><tr>';
     html += '<th>Light<br>Mass (g)</th>';
-    html += '<th>Light<br>Cord (cm)</th>';
+    html += `<th>Light<br>Cord (${unitLabel})</th>`;
     HEAVY_OFFSETS_G.forEach(o => {
-      html += `<th>+${o}g<br>(cm)</th>`;
+      html += `<th>+${o}g<br>(${unitLabel})</th>`;
     });
     html += '</tr></thead><tbody>';
 
@@ -807,7 +828,7 @@ function generatePrintSheets() {
       if (entry.lightResult.status === 'impossible') {
         html += '<td class="impossible">---</td>';
       } else {
-        const v = roundHalf(entry.lightResult.L0_cm).toFixed(1);
+        const v = formatPrintVal(entry.lightResult.L0_cm);
         const cls = entry.lightResult.status === 'warning' ? 'warning' : '';
         html += `<td class="${cls}">${v}</td>`;
       }
@@ -816,7 +837,7 @@ function generatePrintSheets() {
         if (hr.status === 'impossible') {
           html += '<td class="impossible">---</td>';
         } else {
-          const v = roundHalf(hr.L0_cm).toFixed(1);
+          const v = formatPrintVal(hr.L0_cm);
           const cls = hr.status === 'warning' ? 'warning' : '';
           html += `<td class="${cls}">${v}</td>`;
         }
@@ -829,7 +850,11 @@ function generatePrintSheets() {
 
     // Footer (CSS hides it on all but the last table)
     html += '<div class="print-footer">';
-    html += 'Cord lengths in cm, rounded to 0.5 cm. Underlined = unreliably short (&lt;10 cm). "---" = impossible. ';
+    if (useInches) {
+      html += 'Cord lengths in inches, rounded to 1/4 in. Underlined = unreliably short. "---" = impossible. ';
+    } else {
+      html += 'Cord lengths in cm, rounded to 0.5 cm. Underlined = unreliably short (&lt;10 cm). "---" = impossible. ';
+    }
     html += 'Attachment assumed 35 cm. For every 1 cm shorter, lengthen cord by ~0.7 cm. ';
     html += 'Heavy mass = Light mass + offset.';
     html += '</div>';
@@ -844,31 +869,39 @@ function generatePrintSheets() {
 //  CSV EXPORT
 // ═══════════════════════════════════════════════
 
-function exportCSV() {
+function exportCSV(mode) {
   if (!allResults) return;
 
-  let csv = 'Drop Height (m),Light Mass (g),Light Cord (cm),';
-  csv += HEAVY_OFFSETS_G.map(o => `Heavy +${o}g Cord (cm)`).join(',');
+  const useInches = (mode === 'inches');
+  const cordUnit = useInches ? 'in' : 'cm';
+
+  let csv = `Drop Height (m),Light Mass (g),Light Cord (${cordUnit}),`;
+  csv += HEAVY_OFFSETS_G.map(o => `Heavy +${o}g Cord (${cordUnit})`).join(',');
   csv += '\n';
 
   for (let hi = 0; hi < DROP_HEIGHTS.length; hi++) {
     allResults[hi].forEach(entry => {
       csv += `${DROP_HEIGHTS[hi].toFixed(2)},${entry.lightMassG},`;
-      csv += (entry.lightResult.status !== 'impossible' ? entry.lightResult.L0_cm.toFixed(4) : 'N/A') + ',';
-      csv += entry.heavyResults.map(hr =>
-        hr.status !== 'impossible' ? hr.L0_cm.toFixed(4) : 'N/A'
-      ).join(',');
+      csv += formatCordCSV(entry.lightResult, useInches) + ',';
+      csv += entry.heavyResults.map(hr => formatCordCSV(hr, useInches)).join(',');
       csv += '\n';
     });
   }
 
+  const filename = useInches ? 'bungee_drop_lookup_inches.csv' : 'bungee_drop_lookup.csv';
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'bungee_drop_lookup.csv';
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function formatCordCSV(result, useInches) {
+  if (result.status === 'impossible') return 'N/A';
+  if (useInches) return (result.L0_cm / 2.54).toFixed(4);
+  return result.L0_cm.toFixed(4);
 }
 
 // Initialize empty table
